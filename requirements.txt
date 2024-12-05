@@ -1,7 +1,6 @@
+
 requests
 firebase-admin
 pyTelegramBotAPI
-python-telegram-bot
-asyncio==3.4.3
+asyncio
 python-dotenv
-aiohttp
