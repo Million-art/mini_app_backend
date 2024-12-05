@@ -1,9 +1,8 @@
-from http.server import BaseHTTPRequestHandler
+from telebot import TeleBot  
 import os
 import json
 import requests
 import datetime
-from telebot import TeleBot  
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
@@ -129,21 +128,7 @@ def start(message):
         bot.reply_to(message, error_message)  
         print(f"Error occurred: {str(e)}")  
 
-class Handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])  
-        post_data = self.rfile.read(content_length)
-        update_dict = json.loads(post_data.decode('utf-8'))
-
-        # Process the update synchronously
-        update = types.Update.de_json(update_dict)
-        bot.process_new_updates([update])
-
-        self.send_response(200)
-        self.end_headers()
-
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
-        self.wfile.write(BOT_TOKEN.encode('utf-8'))
+if __name__ == "__main__":
+    # Start polling
+    print("Starting polling...")
+    bot.polling(none_stop=True)
