@@ -16,7 +16,7 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
-firebase_config = json.loads(os.environ.get('FIREBASE_CREDENTIALS'))
+firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "telegrambot-e70ab.appspot.com"})
 db = firestore.client()
