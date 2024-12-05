@@ -4,7 +4,7 @@ import json
 import asyncio
 import requests
 import datetime
-from telebot.async_telebot import AsyncTeleBot  # Correct import
+from telebot.async_telebot import AsyncTeleBot  
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
@@ -29,8 +29,7 @@ bucket = storage.bucket()
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
-    start_button = types.InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="http://"))
-    keyboard.add(start_button)
+    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
     return keyboard
 
 
@@ -42,7 +41,7 @@ async def start(message):
     user_username = message.from_user.username
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
-
+    text = message.text.split()
     welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
@@ -50,7 +49,7 @@ async def start(message):
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
-    await bot.send_message(message.chat.id, welcome_message)  
+    # await bot.send_message(message.chat.id, welcome_message)  
 
     try:
         user_ref = db.collection('users').document(user_id)
@@ -97,7 +96,6 @@ async def start(message):
                 'links': None
             }
 
-            text = message.text.split()  
             if len(text) > 1 and text[1].startswith('ref_'):   
                 referrer_id = text[1][4:]
                 referrer_ref = db.collection('users').document(referrer_id)
@@ -133,7 +131,7 @@ async def start(message):
         await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
     except Exception as e:
         error_message = "Error. Please try again!"
-        await bot.send_message(message.chat.id, error_message)  
+        await bot.reply_to(message, error_message)  
         print(f"Error occurred: {str(e)}")  
 
 class handler(BaseHTTPRequestHandler):
