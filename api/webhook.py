@@ -132,20 +132,22 @@ async def start(message):
         await bot.send_message(message.chat.id, error_message)  
         print(f"Error occurred: {str(e)}")  
 
+
 class handler(BaseHTTPRequestHandler):
+    async def process_update(self, update_dict):
+        update = types.Update.de_json(update_dict)
+        await bot.process_new_updates([update])
+
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])  
         post_data = self.rfile.read(content_length)
         update_dict = json.loads(post_data.decode('utf-8'))
 
-        asyncio.run(self.process_update(update_dict))
+        # Instead of using asyncio.run, we now use asyncio.ensure_future
+        asyncio.ensure_future(self.process_update(update_dict))
 
         self.send_response(200)
         self.end_headers()
-
-    async def process_update(self, update_dict):
-        update = types.Update.de_json(update_dict)
-        await bot.process_new_updates([update])
 
     def do_GET(self):
         self.send_response(200)
