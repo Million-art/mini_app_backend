@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 import os
 import json
 import asyncio
@@ -11,24 +11,27 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 
-load_dotenv()
 
+load_dotenv()
 # Initialize bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 print(BOT_TOKEN)
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
+
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "telegrambot-e70ab.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
+
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
     return keyboard
+
 
 @bot.message_handler(commands=['start'])  
 async def start(message):
@@ -39,13 +42,14 @@ async def start(message):
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
-    
     welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
+
+    # await bot.send_message(message.chat.id, welcome_message)  
 
     try:
         user_ref = db.collection('users').document(user_id)
@@ -130,14 +134,13 @@ async def start(message):
         await bot.reply_to(message, error_message)  
         print(f"Error occurred: {str(e)}")  
 
-class RequestHandler(BaseHTTPRequestHandler):
+class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])  
         post_data = self.rfile.read(content_length)
         update_dict = json.loads(post_data.decode('utf-8'))
 
-        # Create a new task for processing the update
-        asyncio.create_task(self.process_update(update_dict))
+        asyncio.run(self.process_update(update_dict))
 
         self.send_response(200)
         self.end_headers()
@@ -149,13 +152,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b'Hello, BOT is running!')
+        self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
-def run(server_class=HTTPServer, handler_class=RequestHandler, port=8000):
-    server_address = ('', port)
-    httpd = server_class(server_address, handler_class)
-    print(f'Starting HTTP server on port {port}...')
-    httpd.serve_forever()
 
-if __name__ == "__main__":
-    run()
+ 
