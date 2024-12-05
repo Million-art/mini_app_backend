@@ -140,7 +140,8 @@ class handler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         update_dict = json.loads(post_data.decode('utf-8'))
 
-        asyncio.run(self.process_update(update_dict))
+   # Create a new task for processing the update
+        asyncio.create_task(self.process_update(update_dict))
 
         self.send_response(200)
         self.end_headers()
