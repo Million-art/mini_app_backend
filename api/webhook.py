@@ -36,7 +36,7 @@ def generate_start_keyboard():
     return keyboard
 
 # Webhook route to receive updates from Telegram
-@app.post("/webhook")
+@app.post("/api/webhook")
 async def webhook(request: Request):
     logging.info("Received a request")
     json_update = await request.json()
@@ -143,6 +143,3 @@ def start(message):
         error_message = "Error. Please try again!"
         bot.reply_to(message, error_message)  
         print(f"Error occurred: {str(e)}")
-
-# Vercel expects the app to be exported
-app = FastAPI()  # This line may be redundant; ensure to define your app only once.
