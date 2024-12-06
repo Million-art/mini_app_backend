@@ -42,9 +42,9 @@ async def webhook(request: Request):
     bot.process_new_updates([update])
     return {"status": "ok"}
 
-# Set the webhook URL
+# Set the webhook URL dynamically based on your environment
 def set_webhook():
-    # Replace with your actual public URL or ngrok URL
+    # Replace this with the correct URL of your app or ngrok URL during development
     webhook_url = "https://mini-app-backend-mu.vercel.app/webhook"  # Replace with your actual public URL
     bot.remove_webhook()
     bot.set_webhook(url=webhook_url)
@@ -133,7 +133,7 @@ def start(message):
                         'firstName': user_first_name,
                         'lastName': user_last_name,
                         'userImage': user_image,
-                    }  
+                    }
 
                     referrer_ref.update({
                         'balance': new_balance,
