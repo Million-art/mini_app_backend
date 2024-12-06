@@ -7,6 +7,9 @@ import firebase_admin
 from firebase_admin import credentials, firestore, storage
 import datetime
 import telebot
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Load environment variables
 load_dotenv()
@@ -36,6 +39,7 @@ def generate_start_keyboard():
 @app.post("/webhook")
 async def webhook(request: Request):
     # Parse incoming update from Telegram
+    logging.info("Received a request")
     json_update = await request.json()
     update = telebot.types.Update.de_json(json_update)
     # Process the update
