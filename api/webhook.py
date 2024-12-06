@@ -1,36 +1,59 @@
-from http.server import BaseHTTPRequestHandler
+from fastapi import FastAPI, Request
+from telebot import TeleBot, types
 import os
 import json
 import requests
-import datetime
+from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
-from telebot import TeleBot, types
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from dotenv import load_dotenv
+import datetime
 
+# Load environment variables
 load_dotenv()
-# Initialize bot
+
+# Initialize FastAPI app
+app = FastAPI()
+
+# Initialize Telegram Bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-print(BOT_TOKEN)
 bot = TeleBot(BOT_TOKEN)
 
 # Initialize Firebase
-
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "telegrambot-e70ab.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
-
+# Generate Start Keyboard
 def generate_start_keyboard():
+    from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
     return keyboard
 
+# Webhook route to receive updates from Telegram
+@app.post("/webhook")
+async def webhook(request: Request):
+    # Parse incoming update from Telegram
+    json_update = await request.json()
+    update = types.Update.de_json(json_update)
+    # Process the update
+    bot.process_new_updates([update])
+    return {"status": "ok"}
 
-@bot.message_handler(commands=['start'])  
+# Set the webhook URL
+def set_webhook():
+    # Replace with your actual public URL or ngrok URL
+    webhook_url = "https://mini-app-backend-mu.vercel.app"  # Replace with your domain or ngrok URL
+    bot.remove_webhook()
+    bot.set_webhook(url=webhook_url)
+
+# Call this function during startup to set the webhook
+set_webhook()
+
+# Telegram bot command handler
+@bot.message_handler(commands=['start'])
 def start(message):
     user_id = str(message.from_user.id)  
     user_first_name = str(message.from_user.first_name)  
@@ -39,14 +62,13 @@ def start(message):
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
+
     welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
-
-    # await bot.send_message(message.chat.id, welcome_message)  
 
     try:
         user_ref = db.collection('users').document(user_id)
@@ -122,31 +144,15 @@ def start(message):
 
             user_ref.set(user_data)
 
+        # Send the welcome message with the keyboard
         keyboard = generate_start_keyboard()
         bot.reply_to(message, welcome_message, reply_markup=keyboard)  
     except Exception as e:
         error_message = "Error. Please try again!"
         bot.reply_to(message, error_message)  
-        print(f"Error occurred: {str(e)}")  
+        print(f"Error occurred: {str(e)}")
 
-
-class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])  
-        post_data = self.rfile.read(content_length)
-        update_dict = json.loads(post_data.decode('utf-8'))
-
-        self.process_update(update_dict)
-
-        self.send_response(200)
-        self.end_headers()
-
-    def process_update(self, update_dict):
-        update = types.Update.de_json(update_dict)
-        bot.process_new_updates([update])
-
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
-
+# Start FastAPI app
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
