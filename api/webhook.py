@@ -45,7 +45,7 @@ async def webhook(request: Request):
 # Set the webhook URL
 def set_webhook():
     # Replace with your actual public URL or ngrok URL
-    webhook_url = "https://mini-app-backend-mu.vercel.app"  # Replace with your domain or ngrok URL
+    webhook_url = "https://mini-app-backend-mu.vercel.app/webhook"  # Replace with your actual public URL
     bot.remove_webhook()
     bot.set_webhook(url=webhook_url)
 
