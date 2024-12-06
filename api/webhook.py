@@ -44,18 +44,18 @@ async def webhook(request: Request):
     bot.process_new_updates([update])
     return {"status": "ok"}
 
-# Telegram bot command handler
+# Telegram bot command handler for '/start'
 @bot.message_handler(commands=['start'])
 def start(message):
-    user_id = str(message.from_user.id)  
-    user_first_name = str(message.from_user.first_name)  
+    user_id = str(message.from_user.id)
+    user_first_name = str(message.from_user.first_name)
     user_last_name = message.from_user.last_name
     user_username = message.from_user.username
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
 
-    welcome_message = (  
+    welcome_message = (
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
@@ -63,16 +63,17 @@ def start(message):
     )
 
     try:
+        # Check if the user already exists in Firebase
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            photos = bot.get_user_profile_photos(user_id, limit=1)   
+            photos = bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
-                file_id = photos.photos[0][-1].file_id  
+                file_id = photos.photos[0][-1].file_id
                 file_info = bot.get_file(file_id)
                 file_path = file_info.file_path
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
+                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
 
                 # Download the image
                 response = requests.get(file_url)
@@ -88,7 +89,7 @@ def start(message):
             else:
                 user_image = None
 
-            # Prepare user data
+            # Prepare user data for Firebase
             user_data = {
                 'userImage': user_image,
                 'firstName': user_first_name,
@@ -107,8 +108,9 @@ def start(message):
                 'links': None
             }
 
-            if len(text) > 1 and text[1].startswith('ref_'):   
-                referrer_id = text[1][4:]
+            # Handle referral logic if a referral code is provided
+            if len(text) > 1 and text[1].startswith('ref_'):
+                referrer_id = text[1][4:]  # Extract referrer ID
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
 
@@ -125,7 +127,7 @@ def start(message):
                         'firstName': user_first_name,
                         'lastName': user_last_name,
                         'userImage': user_image,
-                    }  
+                    }
 
                     referrer_ref.update({
                         'balance': new_balance,
@@ -134,12 +136,14 @@ def start(message):
                 else:
                     user_data['referredBy'] = None
 
+            # Save user data to Firebase
             user_ref.set(user_data)
 
         # Send the welcome message with the keyboard
         keyboard = generate_start_keyboard()
-        bot.reply_to(message, welcome_message, reply_markup=keyboard)  
+        bot.reply_to(message, welcome_message, reply_markup=keyboard)
+
     except Exception as e:
         error_message = "Error. Please try again!"
-        bot.reply_to(message, error_message)  
+        bot.reply_to(message, error_message)
         print(f"Error occurred: {str(e)}")
