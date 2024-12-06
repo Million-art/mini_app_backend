@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from firebase_admin import credentials, firestore, storage
 import firebase_admin
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from fastapi import FastAPI, Request
 
 # Load environment variables
@@ -17,12 +18,19 @@ firebase_admin.initialize_app(cred, {'storageBucket': "telegrambot-e70ab.appspot
 db = firestore.client()
 bucket = storage.bucket()
 
-# Telegram Client Setup
+# Telegram Client Setup (Using StringSession for in-memory session storage)
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-client = TelegramClient("bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+
+# Using StringSession to avoid file-based session storage
+SESSION_STRING = os.environ.get("SESSION_STRING", None)
+
+if SESSION_STRING:
+    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+else:
+    client = TelegramClient(StringSession(), API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
 # FastAPI Setup
 app = FastAPI()
