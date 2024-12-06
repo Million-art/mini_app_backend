@@ -2,6 +2,6 @@ fastapi
 uvicorn
 python-dotenv
 requests
-aiogram
+aiogram==2.23.1
 firebase-admin
 pydantic
