@@ -144,6 +144,8 @@ def start(message):
         bot.reply_to(message, welcome_message, reply_markup=keyboard)
 
     except Exception as e:
-        error_message = "Error. Please try again!"
+        error_message = f"Error: {str(e)}. Please try again later!"
+        logging.error(f"Error occurred while processing /start: {str(e)}")
         bot.reply_to(message, error_message)
-        print(f"Error occurred: {str(e)}")
+        # Ensure the bot responds again
+        bot.send_message(message.chat.id, "Please try sending /start again if the issue persists.")
