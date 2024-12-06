@@ -4,3 +4,4 @@ requests
 firebase-admin
 pyTelegramBotAPI
 python-dotenv
+telebot
