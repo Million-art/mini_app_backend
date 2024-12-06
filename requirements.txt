@@ -1,7 +1,7 @@
-fastapi==0.103.0
-uvicorn==0.23.1
-python-dotenv==1.0.0
-requests==2.28.2
-aiogram==3.0.0
-firebase-admin==6.1.0
-pydantic==2.0.0
+fastapi
+uvicorn
+python-dotenv
+requests
+aiogram
+firebase-admin
+pydantic
