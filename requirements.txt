@@ -1,5 +1,6 @@
-
-requests
-firebase-admin
-
-python-dotenv
+fastapi==0.100.0         # FastAPI for building the API
+uvicorn==0.23.2          # ASGI server for running the FastAPI app
+telethon==1.30.0         # Library for Telegram API interaction
+firebase-admin==6.1.0    # Firebase SDK for Python
+python-dotenv==1.0.0     # Load environment variables from .env files
+requests==2.31.0         # HTTP requests library
