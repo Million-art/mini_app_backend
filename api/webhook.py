@@ -36,7 +36,7 @@ def generate_start_keyboard():
     return keyboard
 
 # Webhook route to receive updates from Telegram
-@app.post("/api/webhook")
+@app.post("/webhook")
 async def webhook(request: Request):
     logging.info("Received a request")
     json_update = await request.json()
