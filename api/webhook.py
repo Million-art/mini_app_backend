@@ -2,19 +2,19 @@ import os
 import json
 import datetime
 import requests
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.utils import executor
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
-import asyncio
 
 load_dotenv()
 
 # Initialize bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 # Initialize Firebase
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
@@ -29,10 +29,7 @@ def generate_start_keyboard():
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
     return keyboard
 
-# Router for handling messages
-router = dp.router
-
-@router.message(F.command('start'))
+@dp.message_handler(commands=['start'])
 async def start(message: types.Message):
     user_id = str(message.from_user.id)
     user_first_name = str(message.from_user.first_name)
@@ -125,17 +122,6 @@ async def start(message: types.Message):
         await bot.send_message(message.chat.id, error_message)
         print(f"Error occurred: {str(e)}")
 
-# The entry point to run the bot
-async def on_start():
-    logging.info("Starting the bot...")
-    try:
-        # Run the bot's polling
-        await dp.start_polling(bot)
-    except Exception as e:
-        logging.error(f"Error occurred while running the bot: {e}")
-
-if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    # Running the bot with asyncio
-    asyncio.run(on_start())
+if __name__ == '__main__':
+    from aiogram import executor
+    executor.start_polling(dp, skip_updates=True)
