@@ -1,20 +1,20 @@
 import os
 import json
+import datetime
 import requests
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.utils import executor
 from dotenv import load_dotenv
-from telebot.async_telebot import AsyncTeleBot
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-# Load environment variables
 load_dotenv()
 
 # Initialize bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-bot = AsyncTeleBot(BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot)
 
 # Initialize Firebase
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
@@ -23,26 +23,14 @@ firebase_admin.initialize_app(cred, {'storageBucket': "telegrambot-e70ab.appspot
 db = firestore.client()
 bucket = storage.bucket()
 
-# FastAPI app initialization
-app = FastAPI()
-
-# Helper function for generating start keyboard
+# Generate the start keyboard
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
     return keyboard
 
-# Telegram bot webhook handler
-@app.post("/webhook")
-async def webhook(request: Request):
-    update_dict = await request.json()
-    update = types.Update.de_json(update_dict)
-    await bot.process_new_updates([update])
-    return {"status": "ok"}
-
-# Start command handler
-@bot.message_handler(commands=['start'])
-async def start(message):
+@dp.message_handler(commands=['start'])
+async def start(message: types.Message):
     user_id = str(message.from_user.id)
     user_first_name = str(message.from_user.first_name)
     user_last_name = message.from_user.last_name
@@ -51,7 +39,7 @@ async def start(message):
     is_premium = message.from_user.is_premium
     text = message.text.split()
 
-    welcome_message = (
+    welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
@@ -63,7 +51,6 @@ async def start(message):
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            # Handling user profile image and setting up user data
             photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][-1].file_id
@@ -81,7 +68,6 @@ async def start(message):
             else:
                 user_image = None
 
-            # Prepare user data
             user_data = {
                 'userImage': user_image,
                 'firstName': user_first_name,
@@ -130,8 +116,12 @@ async def start(message):
             user_ref.set(user_data)
 
         keyboard = generate_start_keyboard()
-        await bot.reply_to(message, welcome_message, reply_markup=keyboard)
+        await bot.send_message(message.chat.id, welcome_message, reply_markup=keyboard)
     except Exception as e:
         error_message = "Error. Please try again!"
-        await bot.reply_to(message, error_message)
+        await bot.send_message(message.chat.id, error_message)
         print(f"Error occurred: {str(e)}")
+
+if __name__ == '__main__':
+    from aiogram import executor
+    executor.start_polling(dp)
