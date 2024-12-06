@@ -1,8 +1,6 @@
 fastapi
 uvicorn
-python-dotenv
 requests
-aiogram
 firebase-admin
-pydantic
-
+pyTelegramBotAPI
+python-dotenv
