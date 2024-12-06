@@ -38,11 +38,9 @@ def generate_start_keyboard():
 # Webhook route to receive updates from Telegram
 @app.post("/webhook")
 async def webhook(request: Request):
-    # Parse incoming update from Telegram
     logging.info("Received a request")
     json_update = await request.json()
     update = telebot.types.Update.de_json(json_update)
-    # Process the update
     bot.process_new_updates([update])
     return {"status": "ok"}
 
@@ -146,7 +144,5 @@ def start(message):
         bot.reply_to(message, error_message)  
         print(f"Error occurred: {str(e)}")
 
-# Start FastAPI app
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# Vercel expects the app to be exported
+app = FastAPI()  # This line may be redundant; ensure to define your app only once.
