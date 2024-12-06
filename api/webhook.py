@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from telebot import TeleBot, types
 import os
 import json
 import requests
@@ -7,6 +6,7 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 import datetime
+import telebot
 
 # Load environment variables
 load_dotenv()
@@ -16,7 +16,7 @@ app = FastAPI()
 
 # Initialize Telegram Bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-bot = TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN)
 
 # Initialize Firebase
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
@@ -37,20 +37,10 @@ def generate_start_keyboard():
 async def webhook(request: Request):
     # Parse incoming update from Telegram
     json_update = await request.json()
-    update = types.Update.de_json(json_update)
+    update = telebot.types.Update.de_json(json_update)
     # Process the update
     bot.process_new_updates([update])
     return {"status": "ok"}
-
-# Set the webhook URL dynamically based on your environment
-def set_webhook():
-    # Replace this with the correct URL of your app or ngrok URL during development
-    webhook_url = "https://mini-app-backend-mu.vercel.app/webhook"  # Replace with your actual public URL
-    bot.remove_webhook()
-    bot.set_webhook(url=webhook_url)
-
-# Call this function during startup to set the webhook
-set_webhook()
 
 # Telegram bot command handler
 @bot.message_handler(commands=['start'])
@@ -133,7 +123,7 @@ def start(message):
                         'firstName': user_first_name,
                         'lastName': user_last_name,
                         'userImage': user_image,
-                    }
+                    }  
 
                     referrer_ref.update({
                         'balance': new_balance,
