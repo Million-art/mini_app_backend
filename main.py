@@ -1,79 +1,67 @@
-from fastapi import FastAPI, Request
+from http.server import BaseHTTPRequestHandler
 import os
 import json
+import asyncio
 import requests
-from dotenv import load_dotenv
+import datetime
+from telebot.async_telebot import AsyncTeleBot  
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
-import datetime
-import telebot
-import logging
+from telebot import types
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from dotenv import load_dotenv
 
-logging.basicConfig(level=logging.INFO)
 
-# Load environment variables
 load_dotenv()
-
-# Initialize FastAPI app
-app = FastAPI()
-
-# Initialize Telegram Bot
+# Initialize bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-bot = telebot.TeleBot(BOT_TOKEN)
+print(BOT_TOKEN)
+bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
+
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
-# Generate Start Keyboard
+
 def generate_start_keyboard():
-    from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
     return keyboard
 
-# Webhook route to receive updates from Telegram
-@app.post("/webhook")
-async def webhook(request: Request):
-    logging.info("Received a request")
-    json_update = await request.json()
-    update = telebot.types.Update.de_json(json_update)
-    bot.process_new_updates([update])
-    return {"status": "ok"}
 
-# Telegram bot command handler for '/start'
-@bot.message_handler(commands=['start'])
-def start(message):
-    user_id = str(message.from_user.id)
-    user_first_name = str(message.from_user.first_name)
+@bot.message_handler(commands=['start'])  
+async def start(message):
+    user_id = str(message.from_user.id)  
+    user_first_name = str(message.from_user.first_name)  
     user_last_name = message.from_user.last_name
     user_username = message.from_user.username
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
-
-    welcome_message = (
+    welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
+    # await bot.send_message(message.chat.id, welcome_message)  
+
     try:
-        # Check if the user already exists in Firebase
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            photos = bot.get_user_profile_photos(user_id, limit=1)
+            photos = await bot.get_user_profile_photos(user_id, limit=1)   
             if photos.total_count > 0:
-                file_id = photos.photos[0][-1].file_id
-                file_info = bot.get_file(file_id)
+                file_id = photos.photos[0][-1].file_id  
+                file_info = await bot.get_file(file_id)
                 file_path = file_info.file_path
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
 
                 # Download the image
                 response = requests.get(file_url)
@@ -89,7 +77,7 @@ def start(message):
             else:
                 user_image = None
 
-            # Prepare user data for Firebase
+            # Prepare user data
             user_data = {
                 'userImage': user_image,
                 'firstName': user_first_name,
@@ -108,9 +96,8 @@ def start(message):
                 'links': None
             }
 
-            # Handle referral logic if a referral code is provided
-            if len(text) > 1 and text[1].startswith('ref_'):
-                referrer_id = text[1][4:]  # Extract referrer ID
+            if len(text) > 1 and text[1].startswith('ref_'):   
+                referrer_id = text[1][4:]
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
 
@@ -122,12 +109,14 @@ def start(message):
                     new_balance = current_balance + bonus_amount
 
                     referrals = referrer_data.get('referrals', {})
+                    if referrals is None:
+                        referrals = {}
                     referrals[user_id] = {
                         'addedValue': bonus_amount,
                         'firstName': user_first_name,
                         'lastName': user_last_name,
                         'userImage': user_image,
-                    }
+                    }  
 
                     referrer_ref.update({
                         'balance': new_balance,
@@ -136,15 +125,34 @@ def start(message):
                 else:
                     user_data['referredBy'] = None
 
-            # Save user data to Firebase
             user_ref.set(user_data)
 
-        # Send the welcome message with the keyboard
         keyboard = generate_start_keyboard()
-        bot.reply_to(message, welcome_message, reply_markup=keyboard)
-
+        await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
     except Exception as e:
-        error_message = f"Error: {str(e)}. Please try again later!"
-        logging.error(f"Error occurred while processing /start: {str(e)}")
-        bot.reply_to(message, error_message)
-  
+        error_message = "Error. Please try again!"
+        await bot.reply_to(message, error_message)  
+        print(f"Error occurred: {str(e)}")  
+
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])  
+        post_data = self.rfile.read(content_length)
+        update_dict = json.loads(post_data.decode('utf-8'))
+
+        asyncio.run(self.process_update(update_dict))
+
+        self.send_response(200)
+        self.end_headers()
+
+    async def process_update(self, update_dict):
+        update = types.Update.de_json(update_dict)
+        await bot.process_new_updates([update])
+
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
+
+
+ 
