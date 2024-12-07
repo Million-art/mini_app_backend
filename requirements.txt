@@ -6,7 +6,13 @@
 # python-dotenv
 # telebot
 
-firebase-admin==6.1.0
-pyTelegramBotAPI==4.12.0
-requests==2.31.0
-python-dotenv==1.0.0
+# firebase-admin==6.1.0
+# pyTelegramBotAPI==4.12.0
+# requests==2.31.0
+# python-dotenv==1.0.0
+
+aiohttp
+pytelegrambotapi
+firebase-admin
+python-dotenv
+requests
