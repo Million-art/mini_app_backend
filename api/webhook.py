@@ -18,7 +18,7 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 print(BOT_TOKEN)
 bot = AsyncTeleBot(BOT_TOKEN)
 
-# Initialize Firebase
+# Initializee Firebase
 
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
