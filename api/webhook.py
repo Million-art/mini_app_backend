@@ -32,7 +32,6 @@ def generate_start_keyboard():
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mini-app-frontend-bu51.vercel.app")))
     return keyboard
 
-
 @bot.message_handler(commands=['start'])  
 async def start(message):
     user_id = str(message.from_user.id)  
@@ -49,33 +48,32 @@ async def start(message):
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
-    # await bot.send_message(message.chat.id, welcome_message)  
-
     try:
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            photos = await bot.get_user_profile_photos(user_id, limit=1)   
-            if photos.total_count > 0:
-                file_id = photos.photos[0][-1].file_id  
-                file_info = await bot.get_file(file_id)
-                file_path = file_info.file_path
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
+            user_image = None
+            try:
+                # Attempt to retrieve the profile picture
+                photos = await bot.get_user_profile_photos(user_id, limit=1)
+                if photos.total_count > 0:
+                    file_id = photos.photos[0][-1].file_id  
+                    file_info = await bot.get_file(file_id)
+                    file_path = file_info.file_path
+                    file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
 
-                # Download the image
-                response = requests.get(file_url)
-                if response.status_code == 200:
-                    # Upload to Firebase storage
-                    blob = bucket.blob(f"images/{user_id}.jpg")
-                    blob.upload_from_string(response.content, content_type="image/jpeg")
+                    # Download the image
+                    response = requests.get(file_url)
+                    if response.status_code == 200:
+                        # Upload to Firebase storage
+                        blob = bucket.blob(f"images/{user_id}.jpg")
+                        blob.upload_from_string(response.content, content_type="image/jpeg")
 
-                    # Generate the public URL
-                    user_image = blob.generate_signed_url(datetime.timedelta(days=365), method='GET')
-                else:
-                    user_image = None
-            else:
-                user_image = None
+                        # Generate the public URL
+                        user_image = blob.generate_signed_url(datetime.timedelta(days=365), method='GET')
+            except Exception as e:
+                print(f"Profile picture processing failed for user {user_id}: {str(e)}")
 
             # Prepare user data
             user_data = {
@@ -132,7 +130,7 @@ async def start(message):
     except Exception as e:
         error_message = "Error. Please try again!"
         await bot.reply_to(message, error_message)  
-        print(f"Error occurred: {str(e)}")  
+        print(f"Error occurred: {str(e)}")
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
