@@ -29,7 +29,7 @@ bucket = storage.bucket()
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mrjohnsart.netlify.app")))
+    keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mini-app-frontend-bu51.vercel.app")))
     return keyboard
 
 
