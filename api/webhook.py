@@ -84,14 +84,12 @@ async def start(message):
                 'languageCode': user_language_code,
                 'isPremium': is_premium,
                 'balance': 0,
-                'mineRate': 0.001,
-                'isMining': False,
-                'miningStartTime': None,
+                 
                 'daily': {
                     'claimedTime': None,
                     'claimedDay': 0
                 },
-                'links': None
+                'WalletAddress': None
             }
 
             if len(text) > 1 and text[1].startswith('ref_'):   
@@ -154,3 +152,4 @@ class handler(BaseHTTPRequestHandler):
 
 
  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
