@@ -1,5 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import os
+import sys
 import json
 import asyncio
 import requests
@@ -11,8 +12,8 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 import logging
-
-
+sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))
+from validation import validate_api_keys # Import the validation function
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
@@ -195,11 +196,6 @@ async def handle_api_and_secret_keys(message):
         
         del user_states[user_id]
 
-async def validate_api_keys(api_key, secret_key, exchange):
-    # Simulate an API call to check the keys, or use exchange's API
-    if api_key == "correct_api_key" and secret_key == "correct_secret_key":
-        return True
-    return False
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
