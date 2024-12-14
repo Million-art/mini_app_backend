@@ -171,11 +171,11 @@ async def handle_api_secret(message, context):
                     'exchange': exchange
                 }
             })
-            await bot.reply_to(message, 'API key and secret verified and stored successfully.')
+            await bot.send_message(message.chat.id, 'API key and secret verified and stored successfully.')
         else:
-            await bot.reply_to(message, 'Invalid API key or secret. Please try again with /addapikey.')
+            await bot.send_message(message.chat.id, 'Invalid API key or secret. Please try again with /addapikey.')
     except Exception as e:
-        await bot.reply_to(message, f'Error verifying API key: {e}')
+        await bot.send_message(message.chat.id, f'Error verifying API key: {e}')
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
