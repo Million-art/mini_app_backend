@@ -7,7 +7,6 @@ from telebot.async_telebot import AsyncTeleBot
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -90,7 +89,7 @@ async def start(message):
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
 
-                if referrer_doc.exists:
+                if referrer_doc.exists():
                     user_data['referredBy'] = referrer_id
                     referrer_data = referrer_doc.to_dict()
                     bonus_amount = 500 if is_premium else 100
@@ -125,26 +124,25 @@ async def start(message):
 
 @bot.message_handler(commands=['addapikey'])
 async def add_api_key(message):
-    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.add('Binance', 'BingX', 'Bybit')
-    await bot.reply_to(message, "Please choose your exchange:", reply_markup=markup)
-    bot.register_next_step_handler(message, handle_exchange_choice)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Binance", callback_data='Binance'))
+    markup.add(types.InlineKeyboardButton("BingX", callback_data='BingX'))
+    markup.add(types.InlineKeyboardButton("Bybit", callback_data='Bybit'))
+    await bot.send_message(message.chat.id, "Please choose your exchange:", reply_markup=markup)
 
-async def handle_exchange_choice(message):
-    exchange = message.text
-    if exchange not in ['Binance', 'BingX', 'Bybit']:
-        await bot.reply_to(message, "Invalid exchange. Please use /addapikey to try again.")
-        return
+@bot.callback_query_handler(func=lambda call: call.data in ['Binance', 'BingX', 'Bybit'])
+async def handle_exchange_choice(call):
+    exchange = call.data
+    await bot.send_message(call.message.chat.id, f"Selected exchange: {exchange}\nPlease send me your API key.")
+    bot.register_next_step_handler(call.message, lambda msg: handle_api_key(msg, exchange))
 
-    context = {
-        'exchange': exchange
-    }
-    bot.register_next_step_handler(message, lambda msg: handle_api_key(msg, context))
-
-async def handle_api_key(message, context):
+async def handle_api_key(message, exchange):
     api_key = message.text
-    context['api_key'] = api_key
-    await bot.reply_to(message, "API key received. Now, please send me your API secret.")
+    context = {
+        'exchange': exchange,
+        'api_key': api_key
+    }
+    await bot.send_message(message.chat.id, "API key received. Now, please send me your API secret.")
     bot.register_next_step_handler(message, lambda msg: handle_api_secret(msg, context))
 
 async def handle_api_secret(message, context):
@@ -199,8 +197,8 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
-# if __name__ == "__webhook__":
-#     server_address = ('', 8080)
-#     httpd = HTTPServer(server_address, handler)
-#     print('Starting server at http://localhost:8080')
-#     httpd.serve_forever()
+if __name__ == "__main__":
+    server_address = ('', 8080)
+    httpd = HTTPServer(server_address, handler)
+    print('Starting server at http://localhost:8080')
+    httpd.serve_forever()
