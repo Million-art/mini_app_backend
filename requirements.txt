@@ -16,3 +16,4 @@ pytelegrambotapi
 firebase-admin
 python-dotenv
 requests
+python-binance
