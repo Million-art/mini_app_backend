@@ -1,5 +1,5 @@
-import aiohttp
-import datetime
+import asyncio
+from binance.client import Client
 
 async def validate_api_keys(api_key, secret_key, exchange):
     """
@@ -13,7 +13,6 @@ async def validate_api_keys(api_key, secret_key, exchange):
     Returns:
     - bool: True if the keys are valid, False otherwise.
     """
-
     if exchange == 'binance':
         return await validate_binance(api_key, secret_key)
     elif exchange == 'bingx':
@@ -25,45 +24,21 @@ async def validate_api_keys(api_key, secret_key, exchange):
 
 
 async def validate_binance(api_key, secret_key):
-    url = 'https://api.binance.com/api/v3/account'
-    headers = {
-        'X-MBX-APIKEY': api_key
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers, params={'timestamp': int(datetime.datetime.now().timestamp() * 1000)}, auth=aiohttp.BasicAuth(api_key, secret_key)) as response:
-            if response.status == 200:
-                return True
-            else:
-                return False
+    try:
+        client = Client(api_key, secret_key)
+        account_info = await asyncio.to_thread(client.get_account)
+        # If the API keys are valid, account_info should be a dictionary containing account information
+        return isinstance(account_info, dict)
+    except Exception as e:
+        print(f"Binance API key validation failed: {str(e)}")
+        return False
 
 
 async def validate_bingx(api_key, secret_key):
     # Replace with the actual BingX API endpoint and validation logic
-    url = 'https://api.bingx.com/v1/account'
-    headers = {
-        'API-KEY': api_key,
-        'API-SECRET': secret_key
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as response:
-            if response.status == 200:
-                return True
-            else:
-                return False
+    return False
 
 
 async def validate_bybit(api_key, secret_key):
-    url = 'https://api.bybit.com/v2/private/wallet/balance'
-    params = {
-        'api_key': api_key,
-        'timestamp': int(datetime.datetime.now().timestamp() * 1000),
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, auth=aiohttp.BasicAuth(api_key, secret_key)) as response:
-            if response.status == 200:
-                return True
-            else:
-                return False
+    # Replace with the actual Bybit API endpoint and validation logic
+    return False
