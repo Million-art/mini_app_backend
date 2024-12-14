@@ -12,6 +12,8 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 import logging
+from aiogram.types import BotCommand
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))
 from validation import validate_api_keys # Import the validation function
 # Load environment variables
@@ -196,24 +198,17 @@ async def handle_api_and_secret_keys(message):
         
         del user_states[user_id]
 
-@bot.message_handler(commands=['help'])
-async def send_help(message):
-    help_text = (
-        "/start - Start the bot\n"
-        "/addapikey - Add your API keys\n"
-        "/help - Show available commands"
-    )
-    await bot.reply_to(message, help_text)
-
-# Define the bot commands
 async def set_bot_commands():
     commands = [
-        types.BotCommand("/start", "Start the bot"),
-        types.BotCommand("/addapikey", "Add your API keys"),
-        types.BotCommand("/help", "Show available commands")
+        BotCommand(command="start", description="Start the bot"),
+        BotCommand(command="help", description="Get help and available commands"),
+        BotCommand(command="addapikey", description="Add your API keys"),
+        BotCommand(command="exit", description="Exit to main menu"),
     ]
     await bot.set_my_commands(commands)
 
+# Set commands on bot initialization
+asyncio.run(set_bot_commands())
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
