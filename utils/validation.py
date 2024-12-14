@@ -1,5 +1,12 @@
+# utils/validation.py
+
 import asyncio
 from binance.client import Client
+from binance.exceptions import BinanceAPIException, BinanceRequestException
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 async def validate_api_keys(api_key, secret_key, exchange):
     """
@@ -22,22 +29,25 @@ async def validate_api_keys(api_key, secret_key, exchange):
     else:
         return False
 
-
 async def validate_binance(api_key, secret_key):
     try:
         client = Client(api_key, secret_key)
         account_info = await asyncio.to_thread(client.get_account)
-        # If the API keys are valid, account_info should be a dictionary containing account information
+        logging.info("Binance API key validation succeeded.")
         return isinstance(account_info, dict)
-    except Exception as e:
-        print(f"Binance API key validation failed: {str(e)}")
+    except BinanceAPIException as e:
+        logging.error(f"Binance API key validation failed with BinanceAPIException: {e.message}")
         return False
-
+    except BinanceRequestException as e:
+        logging.error(f"Binance API key validation failed with BinanceRequestException: {e.message}")
+        return False
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {str(e)}")
+        return False
 
 async def validate_bingx(api_key, secret_key):
     # Replace with the actual BingX API endpoint and validation logic
     return False
-
 
 async def validate_bybit(api_key, secret_key):
     # Replace with the actual Bybit API endpoint and validation logic
