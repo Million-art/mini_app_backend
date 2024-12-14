@@ -196,6 +196,23 @@ async def handle_api_and_secret_keys(message):
         
         del user_states[user_id]
 
+@bot.message_handler(commands=['help'])
+async def send_help(message):
+    help_text = (
+        "/start - Start the bot\n"
+        "/addapikey - Add your API keys\n"
+        "/help - Show available commands"
+    )
+    await bot.reply_to(message, help_text)
+
+# Define the bot commands
+async def set_bot_commands():
+    commands = [
+        types.BotCommand("/start", "Start the bot"),
+        types.BotCommand("/addapikey", "Add your API keys"),
+        types.BotCommand("/help", "Show available commands")
+    ]
+    await bot.set_my_commands(commands)
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
