@@ -17,4 +17,4 @@ firebase-admin
 python-dotenv
 requests
 python-binance
-aiogram
+
