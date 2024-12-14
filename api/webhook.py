@@ -132,7 +132,6 @@ async def start(message):
         error_message = "Error. Please try again!"
         await bot.reply_to(message, error_message)
         print(f"Error occurred: {str(e)}")
-
 @bot.message_handler(commands=['addapikey'])
 async def add_api_key(message):
     markup = types.InlineKeyboardMarkup()
@@ -162,14 +161,13 @@ async def handle_api_secret(message, context):
     exchange = context['exchange']
     api_key = context['api_key']
 
-    # Send "validating..." message
-    validating_message = await bot.send_message(message.chat.id, "Validating...")
+    await bot.send_message(message.chat.id, "Validating...")
 
+    # Verify the API key and secret for the selected exchange
     headers = {
         'X-MBX-APIKEY': api_key
     }
     try:
-        # Perform API request based on the selected exchange
         if exchange == 'Binance':
             response = requests.get('https://api.binance.com/api/v3/account', headers=headers, auth=(api_key, api_secret))
         elif exchange == 'BingX':
@@ -177,9 +175,7 @@ async def handle_api_secret(message, context):
         elif exchange == 'Bybit':
             response = requests.get('https://api.bybit.com/v2/private/account', headers=headers, auth=(api_key, api_secret))
 
-        # Check response status
         if response.status_code == 200:
-            # Update database
             db.collection('users').document(str(user_id)).update({
                 'exchangeKey': {
                     'apiKey': api_key,
@@ -187,26 +183,11 @@ async def handle_api_secret(message, context):
                     'exchange': exchange
                 }
             })
-            # Edit "validating..." message with success
-            await bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=validating_message.message_id,
-                text="API key and secret verified and stored successfully!"
-            )
+            await bot.send_message(message.chat.id, 'API key and secret verified and stored successfully.')
         else:
-            # Edit "validating..." message with failure
-            await bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=validating_message.message_id,
-                text="Invalid API key or secret. Please try again with /addapikey."
-            )
+            await bot.send_message(message.chat.id, 'Invalid API key or secret. Please try again with /addapikey.')
     except Exception as e:
-        # Edit "validating..." message with error
-        await bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=validating_message.message_id,
-            text=f"Error verifying API key: {e}"
-        )
+        await bot.send_message(message.chat.id, f'Error verifying API key: {e}')
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
