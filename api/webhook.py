@@ -155,8 +155,16 @@ user_states = {}
 # Helper function to start the process of adding API keys
 @bot.callback_query_handler(func=lambda call: call.data.startswith('add_api_keys'))
 async def handle_api_key_selection(call):
-    exchange = call.data.split('_')[2]  
-    
+    # Extract the exchange name
+    exchange = call.data.split('_')[2]
+    supported_exchanges = ['binance', 'bingx', 'bybit']  # Add more exchanges if needed
+
+    # Validate the exchange name
+    if exchange not in supported_exchanges:
+        await bot.answer_callback_query(call.id, "Selected exchange is not supported. ❌")
+        await bot.send_message(call.message.chat.id, "The selected exchange is not available. Please choose a valid exchange.")
+        return
+
     # Save user state to track progress
     user_states[call.from_user.id] = {'step': 'api_key', 'exchange': exchange}
 
