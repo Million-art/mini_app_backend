@@ -156,7 +156,7 @@ AVAILABLE_EXCHANGES = ['binance', 'bingx', 'bybit']
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('add_api_keys'))
 async def handle_api_key_selection(call):
-    exchange = call.data.split('_')[2].lower()
+    exchange = call.data.split('_')[-1].lower()
 
     if exchange not in AVAILABLE_EXCHANGES:
         await bot.answer_callback_query(call.id, "The selected exchange is not available. ❌")
