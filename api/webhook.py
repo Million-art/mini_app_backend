@@ -1,47 +1,44 @@
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 import json
 import asyncio
 import requests
 import datetime
-from telebot.async_telebot import AsyncTeleBot  
+from telebot.async_telebot import AsyncTeleBot
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 
-
 load_dotenv()
+
 # Initialize bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-print(BOT_TOKEN)
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
-
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
-
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mini-app-frontend-bu51.vercel.app")))
     return keyboard
 
-@bot.message_handler(commands=['start'])  
+@bot.message_handler(commands=['start'])
 async def start(message):
-    user_id = str(message.from_user.id)  
-    user_first_name = str(message.from_user.first_name)  
+    user_id = str(message.from_user.id)
+    user_first_name = str(message.from_user.first_name)
     user_last_name = message.from_user.last_name
     user_username = message.from_user.username
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
-    welcome_message = (  
+    welcome_message = (
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
@@ -52,16 +49,16 @@ async def start(message):
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
-        if not user_doc.exists:
+        if not user_doc.exists():
             user_image = None
             try:
                 # Attempt to retrieve the profile picture
                 photos = await bot.get_user_profile_photos(user_id, limit=1)
                 if photos.total_count > 0:
-                    file_id = photos.photos[0][-1].file_id  
+                    file_id = photos.photos[0][-1].file_id
                     file_info = await bot.get_file(file_id)
                     file_path = file_info.file_path
-                    file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
+                    file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
 
                     # Download the image
                     response = requests.get(file_url)
@@ -69,7 +66,6 @@ async def start(message):
                         # Upload to Firebase storage
                         blob = bucket.blob(f"images/{user_id}.jpg")
                         blob.upload_from_string(response.content, content_type="image/jpeg")
-
                         # Generate the public URL
                         user_image = blob.generate_signed_url(datetime.timedelta(days=365), method='GET')
             except Exception as e:
@@ -88,9 +84,9 @@ async def start(message):
                     'claimedDay': 0
                 },
                 'WalletAddress': None,
-                'exchangeKey':{
-                    'apiKey':None,
-                    'secretKey':None,
+                'exchangeKey': {
+                    'apiKey': None,
+                    'secretKey': None,
                     'exchange': None,
                 },
             }
@@ -132,6 +128,7 @@ async def start(message):
         error_message = "Error. Please try again!"
         await bot.reply_to(message, error_message)
         print(f"Error occurred: {str(e)}")
+
 @bot.message_handler(commands=['addapikey'])
 async def add_api_key(message):
     markup = types.InlineKeyboardMarkup()
@@ -153,6 +150,7 @@ async def handle_api_key(message, exchange):
         'api_key': api_key
     }
     await bot.send_message(message.chat.id, "API key received. Now, please send me your API secret.")
+    print(f"Received API key: {api_key}")  # Debugging print
     bot.register_next_step_handler(message, lambda msg: handle_api_secret(msg, context))
 
 async def handle_api_secret(message, context):
@@ -161,7 +159,7 @@ async def handle_api_secret(message, context):
     exchange = context['exchange']
     api_key = context['api_key']
 
-    await bot.send_message(message.chat.id, "Validating...")
+    validation_message = await bot.send_message(message.chat.id, "Validating...")
 
     # Verify the API key and secret for the selected exchange
     headers = {
@@ -175,6 +173,9 @@ async def handle_api_secret(message, context):
         elif exchange == 'Bybit':
             response = requests.get('https://api.bybit.com/v2/private/account', headers=headers, auth=(api_key, api_secret))
 
+        print(f"Validation response status code: {response.status_code}")  # Debugging print
+        await bot.delete_message(message.chat.id, validation_message.message_id)
+
         if response.status_code == 200:
             db.collection('users').document(str(user_id)).update({
                 'exchangeKey': {
@@ -187,7 +188,9 @@ async def handle_api_secret(message, context):
         else:
             await bot.send_message(message.chat.id, 'Invalid API key or secret. Please try again with /addapikey.')
     except Exception as e:
+        await bot.delete_message(message.chat.id, validation_message.message_id)
         await bot.send_message(message.chat.id, f'Error verifying API key: {e}')
+        print(f"Error during validation: {str(e)}")  # Debugging print
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -209,4 +212,8 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
- 
+# if __name__ == "__main__":
+#     server_address = ('', 8080)
+#     httpd = HTTPServer(server_address, handler)
+#     print('Starting server at http://localhost:8080')
+#     httpd.serve_forever()
