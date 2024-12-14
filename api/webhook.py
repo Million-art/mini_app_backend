@@ -4,49 +4,48 @@ import json
 import asyncio
 import requests
 import datetime
-from telebot.async_telebot import AsyncTeleBot
+from telebot.async_telebot import AsyncTeleBot  
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 
-# Load environment variables
+
 load_dotenv()
+# Initialize bot
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN not found in environment variables.")
+print(BOT_TOKEN)
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
+
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
-# Helper: Generate Start Keyboard
+
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mini-app-frontend-bu51.vercel.app")))
     return keyboard
 
-# Bot Command: /start
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start'])  
 async def start(message):
-    user_id = str(message.from_user.id)
-    user_first_name = message.from_user.first_name or "Unknown"
-    user_last_name = message.from_user.last_name or ""
-    user_username = message.from_user.username or "No Username"
-    user_language_code = message.from_user.language_code or "Unknown"
-    is_premium = getattr(message.from_user, 'is_premium', False)
-    ref_code = message.text.split()[1] if len(message.text.split()) > 1 else None
-
-    welcome_message = (
+    user_id = str(message.from_user.id)  
+    user_first_name = str(message.from_user.first_name)  
+    user_last_name = message.from_user.last_name
+    user_username = message.from_user.username
+    user_language_code = str(message.from_user.language_code)
+    is_premium = message.from_user.is_premium
+    text = message.text.split()
+    welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
-        f"Invite friends to earn more coins together and level up faster! 🧨\n"
+        f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
     try:
@@ -54,20 +53,29 @@ async def start(message):
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            # Attempt to fetch and store profile image
             user_image = None
             try:
+                # Attempt to retrieve the profile picture
                 photos = await bot.get_user_profile_photos(user_id, limit=1)
                 if photos.total_count > 0:
-                    file_id = photos.photos[0][-1].file_id
-                    file = await bot.download_file_by_id(file_id)
-                    blob = bucket.blob(f"images/{user_id}.jpg")
-                    blob.upload_from_string(file.read(), content_type="image/jpeg")
-                    user_image = blob.generate_signed_url(datetime.timedelta(days=365), method='GET')
-            except Exception as e:
-                print(f"Profile picture upload failed: {e}")
+                    file_id = photos.photos[0][-1].file_id  
+                    file_info = await bot.get_file(file_id)
+                    file_path = file_info.file_path
+                    file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
 
-            # Create user data
+                    # Download the image
+                    response = requests.get(file_url)
+                    if response.status_code == 200:
+                        # Upload to Firebase storage
+                        blob = bucket.blob(f"images/{user_id}.jpg")
+                        blob.upload_from_string(response.content, content_type="image/jpeg")
+
+                        # Generate the public URL
+                        user_image = blob.generate_signed_url(datetime.timedelta(days=365), method='GET')
+            except Exception as e:
+                print(f"Profile picture processing failed for user {user_id}: {str(e)}")
+
+            # Prepare user data
             user_data = {
                 'userImage': user_image,
                 'firstName': user_first_name,
@@ -76,77 +84,135 @@ async def start(message):
                 'languageCode': user_language_code,
                 'isPremium': is_premium,
                 'balance': 0,
-                'daily': {'claimedTime': None, 'claimedDay': 0},
+                 
+                'daily': {
+                    'claimedTime': None,
+                    'claimedDay': 0
+                },
                 'WalletAddress': None,
-                'exchangeKey': {'apiKey': None, 'secretKey': None, 'exchange': None},
+                'exchangeKey':{
+                    'apiKey':None,
+                    'secretKey':None,
+                     
+                },
             }
 
-            # Handle referral logic
-            if ref_code and ref_code.startswith('ref_'):
-                referrer_id = ref_code[4:]
+            if len(text) > 1 and text[1].startswith('ref_'):   
+                referrer_id = text[1][4:]
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
+
                 if referrer_doc.exists:
-                    bonus = 500 if is_premium else 100
-                    referrer_data = referrer_doc.to_dict()
-                    referrals = referrer_data.get('referrals', {})
-                    referrals[user_id] = {'bonus': bonus, 'firstName': user_first_name}
-                    referrer_ref.update({'balance': referrer_data.get('balance', 0) + bonus, 'referrals': referrals})
                     user_data['referredBy'] = referrer_id
+                    referrer_data = referrer_doc.to_dict()
+                    bonus_amount = 500 if is_premium else 100
+                    current_balance = referrer_data.get('balance', 0)
+                    new_balance = current_balance + bonus_amount
+
+                    referrals = referrer_data.get('referrals', {})
+                    if referrals is None:
+                        referrals = {}
+                    referrals[user_id] = {
+                        'addedValue': bonus_amount,
+                        'firstName': user_first_name,
+                        'lastName': user_last_name,
+                        'userImage': user_image,
+                    }  
+
+                    referrer_ref.update({
+                        'balance': new_balance,
+                        'referrals': referrals
+                    })
+                else:
+                    user_data['referredBy'] = None
 
             user_ref.set(user_data)
 
         keyboard = generate_start_keyboard()
-        await bot.send_message(message.chat.id, welcome_message, reply_markup=keyboard)
-
+        await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
     except Exception as e:
-        print(f"Error in /start: {e}")
-        await bot.send_message(message.chat.id, "An error occurred. Please try again later.")
+        error_message = "Error. Please try again!"
+        await bot.reply_to(message, error_message)  
+        print(f"Error occurred: {str(e)}")
 
-# Command: Add API Key
+
+def generate_add_api_keyboard():
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(types.InlineKeyboardButton("Binance", callback_data='add_api_keys_binance'))
+    keyboard.add(types.InlineKeyboardButton("BingX", callback_data='add_api_keys_bingx'))
+    keyboard.add(types.InlineKeyboardButton("Bybit", callback_data='add_api_keys_bybit'))
+    return keyboard
+
 @bot.message_handler(commands=['addapikey'])
-async def add_api_key(message):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("Binance", callback_data='Binance'))
-    markup.add(types.InlineKeyboardButton("BingX", callback_data='BingX'))
-    markup.add(types.InlineKeyboardButton("Bybit", callback_data='Bybit'))
-    await bot.send_message(message.chat.id, "Please select your exchange:", reply_markup=markup)
+async def add_api_keys(message):
+    # Generate the API selection keyboard
+    keyboard = generate_add_api_keyboard()
+    await bot.reply_to(message, "Please select an exchange to add API keys:", reply_markup=keyboard) 
 
-# Callback: Exchange Choice
-@bot.callback_query_handler(func=lambda call: call.data in ['Binance', 'BingX', 'Bybit'])
-async def handle_exchange_choice(call):
-    exchange = call.data
-    await bot.send_message(call.message.chat.id, f"Selected: {exchange}\nSend your API key:")
-    bot.register_next_step_handler_by_chat_id(call.message.chat.id, lambda msg: handle_api_key(msg, exchange))
+# Dictionary to store user states
+user_states = {}
 
-# Handle API Key
-async def handle_api_key(message, exchange):
-    api_key = message.text
-    await bot.send_message(message.chat.id, "API key received. Send your API secret:")
-    bot.register_next_step_handler_by_chat_id(message.chat.id, lambda msg: handle_api_secret(msg, exchange, api_key))
+# Helper function to start the process of adding API keys
+@bot.callback_query_handler(func=lambda call: call.data.startswith('add_api_keys'))
+async def handle_api_key_selection(call):
+    exchange = call.data.split('_')[2]  
+    
+    # Save user state to track progress
+    user_states[call.from_user.id] = {'step': 'api_key', 'exchange': exchange}
 
-# Handle API Secret
-async def handle_api_secret(message, exchange, api_key):
-    api_secret = message.text
-    user_id = str(message.from_user.id)
-    try:
-        # Validate API key/secret with the exchange
-        response = requests.get(f"https://api.{exchange.lower()}.com/api/v3/account", auth=(api_key, api_secret))
-        if response.status_code == 200:
-            db.collection('users').document(user_id).update({'exchangeKey': {'apiKey': api_key, 'secretKey': api_secret, 'exchange': exchange}})
-            await bot.send_message(message.chat.id, "API key validated and saved.")
+    # Ask user for the API key
+    await bot.answer_callback_query(call.id, "You selected " + exchange + ". Please provide your API key.")
+    await bot.send_message(call.message.chat.id, f"Please enter your {exchange} API key:")
+
+# Handle user messages after receiving the API key
+@bot.message_handler(func=lambda message: message.chat.id in user_states)
+async def handle_api_and_secret_keys(message):
+    user_id = message.chat.id
+    user_state = user_states.get(user_id)
+
+    if not user_state:
+        return  # No active process for this user
+
+    step = user_state.get('step')
+    exchange = user_state.get('exchange')
+
+    if step == 'api_key':
+        # Store API key and prompt for secret key
+        user_state['api_key'] = message.text  # Save the API key
+        user_state['step'] = 'secret_key'  # Change step to wait for secret key
+        
+        await bot.send_message(user_id, f"API Key received. Now, please provide your {exchange} Secret Key:")
+    
+    elif step == 'secret_key':
+        # Store secret key and validate both keys
+        user_state['secret_key'] = message.text  # Save the secret key
+        
+        # Simulate validation (You can replace this with actual validation logic)
+        is_valid = await validate_api_keys(user_state['api_key'], user_state['secret_key'], exchange)
+
+        if is_valid:
+            await bot.send_message(user_id, "API keys are valid! ✅")
         else:
-            await bot.send_message(message.chat.id, "Invalid API credentials. Try again.")
-    except Exception as e:
-        print(f"API validation error: {e}")
-        await bot.send_message(message.chat.id, "Error validating API key. Please try again.")
+            await bot.send_message(user_id, "Invalid API keys. Please try again. ❌")
+        
+        # Reset user state after validation
+        del user_states[user_id]  # Clear the user's state
 
-# Webhook Handler
+# Validation function (for simulation)
+async def validate_api_keys(api_key, secret_key, exchange):
+    # Simulate an API call to check the keys, or use exchange's API
+    if api_key == "correct_api_key" and secret_key == "correct_secret_key":
+        return True
+    return False
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
+        content_length = int(self.headers['Content-Length'])  
         post_data = self.rfile.read(content_length)
-        asyncio.run(self.process_update(json.loads(post_data.decode('utf-8'))))
+        update_dict = json.loads(post_data.decode('utf-8'))
+
+        asyncio.run(self.process_update(update_dict))
+
         self.send_response(200)
         self.end_headers()
 
@@ -157,4 +223,8 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Hello, the bot is running!")
+        self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
+
+
+ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
