@@ -1,9 +1,11 @@
-from firebase_admin import credentials, firestore, storage
+# In process_buy_crypto_analyzer.py
+from firebase_admin import firestore
 import datetime
 
-# Initialize Firestore client
+# Use the already initialized Firebase app, no need to initialize again
 db = firestore.client()
 
+# Your function logic remains the same
 def process_buy_crypto_analyzer(user_id):
     try:
         # Start a Firestore transaction
@@ -46,4 +48,3 @@ def process_buy_crypto_analyzer(user_id):
         # Log and return error
         print(f"Error occurred: {str(e)}")
         return {"error": f"Error processing purchase: {str(e)}"}
-
