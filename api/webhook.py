@@ -93,7 +93,12 @@ async def start(message):
                     'claimedTime': None,
                     'claimedDay': 0
                 },
-                'links': None
+                'links': None,
+                 'buy_analyzer_tool': {
+                    'duration': None,  
+                    'amount': 0,      
+                    'lastPurchase': firestore.SERVER_TIMESTAMP  # Automatically set to the current time
+                }
             }
 
             if len(text) > 1 and text[1].startswith('ref_'):   
