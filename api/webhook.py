@@ -18,6 +18,7 @@ from process_buy_crypto_analyzer import process_buy_crypto_analyzer
 load_dotenv()
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
+ALLOWED_ORIGINS = ["https://mini-app-frontend-bu51.vercel.app"]  # Add your frontend domain here
 
 # Initialize bot
 bot = AsyncTeleBot(BOT_TOKEN)
@@ -144,10 +145,24 @@ async def start(message):
  
  
 class handler(BaseHTTPRequestHandler):
+
+    def _set_cors_headers(self):
+        """Sets the CORS headers for the response."""
+        self.send_header('Access-Control-Allow-Origin', ', '.join(ALLOWED_ORIGINS))
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+
+    def do_OPTIONS(self):
+        """Handles the preflight OPTIONS request to support CORS."""
+        self.send_response(200)
+        self._set_cors_headers()
+        self.end_headers()
+
     def do_POST(self):
         if self.path == "/buy_crypto_analyzer":
             self.send_response(200)
             self.end_headers()
+            self._set_cors_headers()
 
             # Read the incoming request body
             content_length = int(self.headers['Content-Length'])
@@ -169,16 +184,17 @@ class handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
+        
         elif self.path == "/webhook":
             # Process the Telegram webhook
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             update_dict = json.loads(post_data.decode('utf-8'))
 
-        asyncio.run(self.process_update(update_dict))
+            asyncio.run(self.process_update(update_dict))
 
-        self.send_response(200)
-        self.end_headers()
+            self.send_response(200)
+            self.end_headers()
 
     async def process_update(self, update_dict):
         update = types.Update.de_json(update_dict)
@@ -188,5 +204,3 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
-
- 
