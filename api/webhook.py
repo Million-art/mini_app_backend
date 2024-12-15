@@ -13,7 +13,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))
-from validation import validate_api_keys # Import the validation function
+from process_buy_crypto_analyzer import process_buy_crypto_analyzer
 # Load environment variables
 load_dotenv()
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
@@ -141,71 +141,39 @@ async def start(message):
         logging.error(f"Error occurred: {str(e)}")
 
 
-def generate_add_api_keyboard():
-    keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(types.InlineKeyboardButton("Binance", callback_data='add_api_keys_binance'))
-    keyboard.add(types.InlineKeyboardButton("BingX", callback_data='add_api_keys_bingx'))
-    keyboard.add(types.InlineKeyboardButton("Bybit", callback_data='add_api_keys_bybit'))
-    return keyboard
-
-@bot.message_handler(commands=['addapikey'])
-async def add_api_keys(message):
-    keyboard = generate_add_api_keyboard()
-    await bot.reply_to(message, "Please select an exchange to add API keys:", reply_markup=keyboard)
-
-# Dictionary to store user states
-user_states = {}
-
-# Define available exchanges
-AVAILABLE_EXCHANGES = ['binance', 'bingx', 'bybit']
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('add_api_keys'))
-async def handle_api_key_selection(call):
-    exchange = call.data.split('_')[-1].lower()
-
-    if exchange not in AVAILABLE_EXCHANGES:
-        await bot.answer_callback_query(call.id, "The selected exchange is not available. ❌")
-        await bot.send_message(call.message.chat.id, "Please choose a valid exchange from the list.")
-        return
-
-    user_states[call.from_user.id] = {'step': 'api_key', 'exchange': exchange}
-
-    await bot.answer_callback_query(call.id, f"You selected {exchange}. Please provide your API key.")
-    await bot.send_message(call.message.chat.id, f"Please enter your {exchange} API key:")
-
-@bot.message_handler(func=lambda message: message.chat.id in user_states)
-async def handle_api_and_secret_keys(message):
-    user_id = message.chat.id
-    user_state = user_states.get(user_id)
-
-    if not user_state:
-        return
-
-    step = user_state.get('step')
-    exchange = user_state.get('exchange')
-
-    if step == 'api_key':
-        user_state['api_key'] = message.text
-        user_state['step'] = 'secret_key'
-        await bot.send_message(user_id, f"API Key received. Now, please provide your {exchange} Secret Key:")
-    
-    elif step == 'secret_key':
-        user_state['secret_key'] = message.text
-        is_valid = await validate_api_keys(user_state['api_key'], user_state['secret_key'], exchange)
-
-        if is_valid:
-            await bot.send_message(user_id, "API keys are valid! ✅")
-        else:
-            await bot.send_message(user_id, "Invalid API keys. Please try again. ❌")
-        
-        del user_states[user_id]
-
-
+ 
+ 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        update_dict = json.loads(post_data.decode('utf-8'))
+        if self.path == "/buy_crypto_analyzer":
+            self.send_response(200)
+            self.end_headers()
+
+            # Read the incoming request body
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            request_data = json.loads(post_data.decode('utf-8'))
+
+            user_id = request_data.get("user_id")
+
+            if not user_id:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Missing user_id"}).encode())
+                return
+
+            # Call function to process purchase
+            response = process_buy_crypto_analyzer(user_id)
+
+            # Send the response back to the client
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+        elif self.path == "/webhook":
+            # Process the Telegram webhook
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            update_dict = json.loads(post_data.decode('utf-8'))
 
         asyncio.run(self.process_update(update_dict))
 
