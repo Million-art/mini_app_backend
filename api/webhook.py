@@ -98,6 +98,10 @@ async def start(message):
                     'apiKey': None,
                     'secretKey': None,
                 },
+                 'BuyAnalyzerTool':{
+                    'duration':None,
+                    'amount':0
+                }
             }
 
             if len(text) > 1 and text[1].startswith('ref_'):   
@@ -217,9 +221,4 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
-if __name__ == '__main__':
-    from http.server import HTTPServer
-    server_address = ('', 8000)
-    httpd = HTTPServer(server_address, handler)
-    print('Running server...')
-    httpd.serve_forever()
+ 
