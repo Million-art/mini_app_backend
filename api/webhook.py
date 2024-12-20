@@ -10,7 +10,7 @@ from firebase_admin import credentials, firestore, storage
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
-from tonapi import TONAPI  # Ensure you have installed this package
+from tonapi import TonAPI  
 
 load_dotenv()
 # Initialize bot
@@ -27,7 +27,7 @@ bucket = storage.bucket()
 
 # Initialize TON API
 TON_API_KEY = os.environ.get('TON_API_KEY')
-api = TONAPI(api_key=TON_API_KEY)
+api = TonAPI(api_key=TON_API_KEY)
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
