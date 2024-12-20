@@ -6,3 +6,4 @@ python-dotenv
 requests
 python-binance
 tonapi
+TonAPI
