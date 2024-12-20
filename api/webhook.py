@@ -27,7 +27,7 @@ bucket = storage.bucket()
 
 # Initialize TON API
 TON_API_KEY = os.environ.get('TON_API_KEY')
-api = TONAPI(api_key=TON_API_KEY)
+api = TonAPI(api_key=TON_API_KEY)
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
