@@ -153,8 +153,8 @@ async def balance(message):
 
         if user_doc.exists:
             user_data = user_doc.to_dict()
-            contract_address = 'YOUR_CONTRACT_ADDRESS'  
-            wallet_address = user_data['WalletAddress']
+            contract_address = 'EQC18yLE5Ad71VntcIwaMq_PwAW1o2-0CCoH_sTfcdRc7rWZ'  
+            wallet_address = 'UQDWfKaqv0GB_REv8ryIQM8Au2EIEi9U5kjVLIaGKWHOkw8c'
             if wallet_address:
                 balance = api.get_token_balance(contract_address, wallet_address)
                 await bot.reply_to(message, f'Token balance for wallet {wallet_address}: {balance}')
