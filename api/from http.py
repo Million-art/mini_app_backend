@@ -4,13 +4,13 @@ import json
 import asyncio
 import requests
 import datetime
-from telebot.async_telebot import AsyncTeleBot
+from telebot.async_telebot import AsyncTeleBot  
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
-from tonapi import TONAPI  # Ensure you have installed this package
+
 
 load_dotenv()
 # Initialize bot
@@ -18,49 +18,50 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 print(BOT_TOKEN)
 bot = AsyncTeleBot(BOT_TOKEN)
 
-# Initialize Firebase
+# Initializee Firebase
+
 firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
-# Initialize TON API
-TON_API_KEY = os.environ.get('TON_API_KEY')
-api = TONAPI(api_key=TON_API_KEY)
 
 def generate_start_keyboard():
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("Open Web App", web_app=WebAppInfo(url="https://mini-app-frontend-delta.vercel.app")))
     return keyboard
 
-@bot.message_handler(commands=['start'])
+
+@bot.message_handler(commands=['start'])  
 async def start(message):
-    user_id = str(message.from_user.id)
-    user_first_name = str(message.from_user.first_name)
+    user_id = str(message.from_user.id)  
+    user_first_name = str(message.from_user.first_name)  
     user_last_name = message.from_user.last_name
     user_username = message.from_user.username
     user_language_code = str(message.from_user.language_code)
     is_premium = message.from_user.is_premium
     text = message.text.split()
-    welcome_message = (
+    welcome_message = (  
         f"Hello {user_first_name} {user_last_name}! 👋\n\n"
         f"Welcome to Mr. John.\n\n"
         f"Here you can earn coins!\n\n"
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
+    # await bot.send_message(message.chat.id, welcome_message)  
+
     try:
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            photos = await bot.get_user_profile_photos(user_id, limit=1)
+            photos = await bot.get_user_profile_photos(user_id, limit=1)   
             if photos.total_count > 0:
-                file_id = photos.photos[0][-1].file_id
+                file_id = photos.photos[0][-1].file_id  
                 file_info = await bot.get_file(file_id)
                 file_path = file_info.file_path
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"   
 
                 # Download the image
                 response = requests.get(file_url)
@@ -99,14 +100,14 @@ async def start(message):
                 },
                 'buy_analyzer_tool': {
                     'isActive': False,
-                    'duration': None,
-                    'amount': 0,
+                    'duration': None,  
+                    'amount': 0,      
                     'expirationDate': None,
-                    'lastPurchase': firestore.SERVER_TIMESTAMP
+                    'lastPurchase': firestore.SERVER_TIMESTAMP  # Automatically set to the current time
                 }
             }
 
-            if len(text) > 1 and text[1].startswith('ref_'):
+            if len(text) > 1 and text[1].startswith('ref_'):   
                 referrer_id = text[1][4:]
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
@@ -126,7 +127,7 @@ async def start(message):
                         'firstName': user_first_name,
                         'lastName': user_last_name,
                         'userImage': user_image,
-                    }
+                    }  
 
                     referrer_ref.update({
                         'balance': new_balance,
@@ -138,38 +139,15 @@ async def start(message):
             user_ref.set(user_data)
 
         keyboard = generate_start_keyboard()
-        await bot.reply_to(message, welcome_message, reply_markup=keyboard)
+        await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
     except Exception as e:
         error_message = "Error. Please try again!"
-        await bot.reply_to(message, error_message)
-        print(f"Error occurred: {str(e)}")
-
-@bot.message_handler(commands=['balance'])
-async def balance(message):
-    try:
-        user_id = str(message.from_user.id)
-        user_ref = db.collection('users').document(user_id)
-        user_doc = user_ref.get()
-
-        if user_doc.exists:
-            user_data = user_doc.to_dict()
-            wallet_address = 'UQDNaHJrWSQM6tBc6Aa-KSlXGzF7FFNbYUSm1WgaVLnQy4L7'  
-            contract_address = 'EQC18yLE5Ad71VntcIwaMq_PwAW1o2-0CCoH_sTfcdRc7rWZ'
-            if wallet_address:
-                balance = api.get_token_balance(contract_address, wallet_address)
-                await bot.reply_to(message, f'Token balance for wallet {wallet_address}: {balance}')
-            else:
-                await bot.reply_to(message, "No wallet address found. Please set your wallet address first.")
-        else:
-            await bot.reply_to(message, "User not found. Please start the bot first.")
-    except Exception as e:
-        error_message = "Error fetching balance. Please try again!"
-        await bot.reply_to(message, error_message)
-        print(f"Error occurred while fetching balance: {str(e)}")
+        await bot.reply_to(message, error_message)  
+        print(f"Error occurred: {str(e)}")  
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
+        content_length = int(self.headers['Content-Length'])  
         post_data = self.rfile.read(content_length)
         update_dict = json.loads(post_data.decode('utf-8'))
 
@@ -187,5 +165,5 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
-if __name__ == "__main__":
-    bot.polling()
+
+ 
