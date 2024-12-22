@@ -49,7 +49,7 @@ async def start(message):
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
-    # await bot.send_message(message.chat.id, welcome_message)  
+    await bot.send_message(message.chat.id, welcome_message)  
 
     try:
         user_ref = db.collection('users').document(user_id)
@@ -86,9 +86,6 @@ async def start(message):
                 'languageCode': user_language_code,
                 'isPremium': is_premium,
                 'balance': 0,
-                'mineRate': 0.001,
-                'isMining': False,
-                'miningStartTime': None,
                 'daily': {
                     'claimedTime': None,
                     'claimedDay': 0
