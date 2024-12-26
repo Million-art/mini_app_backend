@@ -49,8 +49,6 @@ async def start(message):
         f"Invite friends to earn more coins together, and level up faster! 🧨\n"
     )
 
-    await bot.send_message(message.chat.id, welcome_message)  
-
     try:
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
