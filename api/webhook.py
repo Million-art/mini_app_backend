@@ -23,12 +23,13 @@ firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"
 db = firestore.client()
 bucket = storage.bucket()
 
-# Generate language selection keyboard
 def generate_language_keyboard():
     keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton("English", callback_data="language_english"))
-    keyboard.add(InlineKeyboardButton("Chinese", callback_data="language_chinese"))
-    keyboard.add(InlineKeyboardButton("Spanish", callback_data="language_spanish"))
+
+    keyboard.add(InlineKeyboardButton("🇬🇧 English", callback_data="language_english"))
+    keyboard.add(InlineKeyboardButton("🇨🇳 Chinese", callback_data="language_chinese"))
+    keyboard.add(InlineKeyboardButton("🇪🇸 Spanish", callback_data="language_spanish"))
+    
     return keyboard
 
 # Handle '/start' command
