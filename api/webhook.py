@@ -50,6 +50,9 @@ def generate_main_keyboard(selected_language=None):
 async def start(message):
     user_id = str(message.from_user.id)
     try:
+        # Print the message.text for debugging
+        print(f"Message text: {message.text}")
+
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
@@ -66,9 +69,15 @@ async def start(message):
                 'WalletAddress': None
             }
 
-            text = message.text.split()  
-            if len(text) > 1 and text[1].startswith('ref_'):   
-                referrer_id = text[1][4:]
+            text = message.text.split()  # Split the message to check for referral link
+
+            # Debugging to see the referral part
+            print(f"Referral text: {text}")
+
+            if len(text) > 1 and text[1].startswith('ref_'):  # Check if there is a referral ID
+                referrer_id = text[1][4:]  # Get the referrer ID after "ref_"
+                print(f"Referrer ID: {referrer_id}")  # Debugging the referral ID
+
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
 
@@ -98,11 +107,11 @@ async def start(message):
 
         welcome_message = f"Hello {message.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨"
         keyboard = generate_main_keyboard()
-        await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
+        await bot.reply_to(message, welcome_message, reply_markup=keyboard)
 
     except Exception as e:
         error_message = "Error. Please try again!"
-        await bot.send_message(message.chat.id, error_message)  
+        await bot.send_message(message.chat.id, error_message)
         print(f"Error occurred: {str(e)}")
 
 
