@@ -2,6 +2,7 @@ import os
 import json
 import requests
 import asyncio
+import datetime
 from telebot.async_telebot import AsyncTeleBot
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
@@ -50,13 +51,29 @@ def generate_main_keyboard(selected_language=None):
 async def start(message):
     user_id = str(message.from_user.id)
     try:
-        # Print the message.text for debugging
-        print(f"Message text: {message.text}")
-
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
+            # Handle profile photo upload
+            photo = await bot.get_user_profile_photos(user_id, limit=1)
+            user_image = None
+            if photo.total_count > 0:
+                file_id = photo.photos[0][-1].file_id
+                file_info = await bot.get_file(file_id)
+                file_path = file_info.file_path
+                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+
+                # Download the image
+                response = requests.get(file_url)
+                if response.status_code == 200:
+                    # Upload the image to Firebase storage
+                    blob = bucket.blob(f"user_{user_id}.jpg")
+                    blob.upload_from_string(response.content, content_type="image/jpeg")
+
+                    # Generate signed URL for the image
+                    user_image = blob.generate_signed_url(datetime.timedelta(days=365), method="GET")
+
             # Initialize user data without language selected yet
             user_data = {
                 'firstName': message.from_user.first_name,
@@ -64,19 +81,20 @@ async def start(message):
                 'username': message.from_user.username,
                 'languageCode': None,
                 'isPremium': message.from_user.is_premium,
+                'referrals': {},
                 'balance': 0,
                 'daily': {'claimedTime': None, 'claimedDay': 0},
-                'WalletAddress': None
+                'WalletAddress': None,
+                'userImage': user_image
             }
 
-            text = message.text.split()  # Split the message to check for referral link
+            text = message.text.split()
 
             # Debugging to see the referral part
             print(f"Referral text: {text}")
 
-            if len(text) > 1 and text[1].startswith('ref_'):  # Check if there is a referral ID
-                referrer_id = text[1][4:]  # Get the referrer ID after "ref_"
-                print(f"Referrer ID: {referrer_id}")  # Debugging the referral ID
+            if len(text) > 1 and text[1].startswith('ref_'):
+                referrer_id = text[1][4:]
 
                 referrer_ref = db.collection('users').document(referrer_id)
                 referrer_doc = referrer_ref.get()
@@ -93,7 +111,7 @@ async def start(message):
                         'addedValue': bonus_amount,
                         'firstName': message.from_user.first_name,
                         'lastName': message.from_user.last_name,
-                        'userImage': message.from_user.photo_url,
+                        'userImage': user_image
                     }
 
                     referrer_ref.update({
