@@ -1,30 +1,29 @@
-from http.server import BaseHTTPRequestHandler
 import os
 import json
-import asyncio
 import requests
+import asyncio
 from telebot.async_telebot import AsyncTeleBot
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot import types
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
+# Load environment variables
 load_dotenv()
 
-# Initialize bot
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
+# Initialize Telegram Bot
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
-firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
+firebase_config = json.loads(os.getenv('FIREBASE_SERVICE_ACCOUNT'))
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
 db = firestore.client()
 bucket = storage.bucket()
 
- 
-# Function to generate the main keyboard with language selection and additional buttons
+# Function to generate main keyboard with language selection
 def generate_main_keyboard(selected_language=None):
     keyboard = types.InlineKeyboardMarkup(row_width=3)
     languages = {
@@ -36,20 +35,17 @@ def generate_main_keyboard(selected_language=None):
     buttons = []
     for callback_data, label in languages.items():
         if selected_language and callback_data.endswith(selected_language):
-            label += " ✅"  # Add the checkmark for the selected language
+            label += " ✅"
         buttons.append(types.InlineKeyboardButton(label, callback_data=callback_data))
 
-    # Add the language buttons in rows
     keyboard.add(*buttons)
-
-    # Add additional buttons in separate rows
     keyboard.add(
         types.InlineKeyboardButton("📢 Join Channel", url="https://t.me/mrbeas_group"),
         types.InlineKeyboardButton("🚀 Launch App", web_app=types.WebAppInfo(url="https://mrb-theta.vercel.app"))
     )
     return keyboard
 
-# Handle '/start' command
+# Handle /start command
 @bot.message_handler(commands=['start'])
 async def start(message):
     user_id = str(message.from_user.id)
@@ -69,6 +65,7 @@ async def start(message):
                 'daily': {'claimedTime': None, 'claimedDay': 0},
                 'WalletAddress': None
             }
+
             text = message.text.split()  
             if len(text) > 1 and text[1].startswith('ref_'):   
                 referrer_id = text[1][4:]
@@ -99,7 +96,6 @@ async def start(message):
 
             user_ref.set(user_data)
 
-        # Define welcome message and language selection
         welcome_message = f"Hello {message.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨"
         keyboard = generate_main_keyboard()
         await bot.reply_to(message, welcome_message, reply_markup=keyboard)  
@@ -109,34 +105,29 @@ async def start(message):
         await bot.send_message(message.chat.id, error_message)  
         print(f"Error occurred: {str(e)}")
 
+
 # Handle language selection callback
 @bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
 async def language_selection(call):
     user_id = str(call.from_user.id)
     selected_language = call.data.split('_')[1]
 
-    # Save the selected language in the user's data
     user_ref = db.collection('users').document(user_id)
     user_ref.update({'languageCode': selected_language})
 
-    # Define welcome messages in different languages
     messages = {
         'english': f"Hello {call.from_user.first_name}! 👋\n\nWelcome to Mr. John.\nHere you can earn coins!\nInvite friends to earn more coins together, and level up faster! 🧨",
         'chinese': f"你好 {call.from_user.first_name}！👋\n\n欢迎来到Mr. John。\n在这里你可以赚取硬币！\n邀请朋友一起赚取更多硬币，快速升级！🧨",
         'spanish': f"¡Hola {call.from_user.first_name}! 👋\n\nBienvenido a Mr. John.\n¡Aquí puedes ganar monedas!\nInvita amigos para ganar más monedas juntos y subir de nivel más rápido! 🧨"
     }
 
-    # Send the welcome message based on selected language
     welcome_message = messages.get(selected_language, messages['english'])
-
-    # Show main menu with the updated language selection
     keyboard = generate_main_keyboard(selected_language)
     await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
 
 
-
-# Handle incoming updates
-class handler(BaseHTTPRequestHandler):
+# HTTP Server to handle updates from Telegram Webhook
+class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])  
         post_data = self.rfile.read(content_length)
@@ -155,3 +146,5 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
+
+ 
