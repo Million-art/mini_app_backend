@@ -9,7 +9,7 @@ from firebase_admin import credentials, firestore, storage
 from telebot import types
 from dotenv import load_dotenv
 from http.server import BaseHTTPRequestHandler, HTTPServer
-
+from message import get_welcome_messages
 # Load environment variables
 load_dotenv()
 
@@ -149,6 +149,23 @@ async def language_selection(call):
     }
 
     welcome_message = messages.get(selected_language, messages['english'])
+    keyboard = generate_main_keyboard(selected_language)
+    await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
+
+
+# Handle language selection callback
+@bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
+async def language_selection(call):
+    user_id = str(call.from_user.id)
+    selected_language = call.data.split('_')[1]
+
+    user_ref = db.collection('users').document(user_id)
+    user_ref.update({'languageCode': selected_language})
+
+    # Use the imported function to get the welcome messages
+    welcome_messages = get_welcome_messages(call.from_user.first_name)
+
+    welcome_message = welcome_messages.get(selected_language, welcome_messages['english'])
     keyboard = generate_main_keyboard(selected_language)
     await bot.edit_message_text(welcome_message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=keyboard)
 
