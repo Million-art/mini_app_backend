@@ -5,11 +5,11 @@ import asyncio
 import datetime
 from telebot.async_telebot import AsyncTeleBot
 import firebase_admin
-from message import get_welcome_messages
 from firebase_admin import credentials, firestore, storage
 from telebot import types
 from dotenv import load_dotenv
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from .message import get_welcome_messages
 # Load environment variables
 load_dotenv()
 
@@ -171,3 +171,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write('Hello, BOT is running!'.encode('utf-8'))
 
  
+
+# Start polling
+if __name__ == '__main__':
+    print("Bot is polling...")
+    asyncio.run(bot.polling())
