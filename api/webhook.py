@@ -56,25 +56,6 @@ async def start(message):
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            # Handle profile photo upload
-            photo = await bot.get_user_profile_photos(user_id, limit=1)
-            user_image = None
-            if photo.total_count > 0:
-                file_id = photo.photos[0][-1].file_id
-                file_info = await bot.get_file(file_id)
-                file_path = file_info.file_path
-                file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-
-                # Download the image
-                response = requests.get(file_url)
-                if response.status_code == 200:
-                    # Upload the image to Firebase storage
-                    blob = bucket.blob(f"user_{user_id}.jpg")
-                    blob.upload_from_string(response.content, content_type="image/jpeg")
-
-                    # Generate signed URL for the image
-                    user_image = blob.generate_signed_url(datetime.timedelta(days=365), method="GET")
-
             # Initialize user data without language selected yet
             user_data = {
                 'firstName': message.from_user.first_name,
@@ -84,10 +65,10 @@ async def start(message):
                 'isPremium': message.from_user.is_premium,
                 'referrals': {},
                 'balance': 0,
-                'completedTasks':[],
+                'completedTasks': [],
                 'daily': {'claimedTime': None, 'claimedDay': 0},
                 'WalletAddress': None,
-                'userImage': user_image
+                'userImage': None  # Set userImage to null
             }
 
             text = message.text.split()
@@ -113,7 +94,7 @@ async def start(message):
                         'addedValue': bonus_amount,
                         'firstName': message.from_user.first_name,
                         'lastName': message.from_user.last_name,
-                        'userImage': user_image
+                        'userImage': None  # Keep userImage null in referrals
                     }
 
                     referrer_ref.update({
