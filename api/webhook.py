@@ -68,7 +68,6 @@ async def start(message):
                 'completedTasks': [],
                 'daily': {'claimedTime': None, 'claimedDay': 0},
                 'WalletAddress': None,
-                'userImage': None  # Set userImage to null
             }
 
             text = message.text.split()
@@ -94,7 +93,6 @@ async def start(message):
                         'addedValue': bonus_amount,
                         'firstName': message.from_user.first_name,
                         'lastName': message.from_user.last_name,
-                        'userImage': None  # Keep userImage null in referrals
                     }
 
                     referrer_ref.update({
