@@ -47,7 +47,6 @@ def generate_main_keyboard(selected_language=None):
     )
     return keyboard
 
-# Handle /start command
 @bot.message_handler(commands=['start'])
 async def start(message):
     user_id = str(message.from_user.id)
@@ -55,64 +54,66 @@ async def start(message):
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
 
+        # Safely extract user data
+        first_name = message.from_user.first_name or ""
+        last_name = message.from_user.last_name or ""
+        username = message.from_user.username or ""
+        is_premium = getattr(message.from_user, 'is_premium', False)  # Handle missing attribute
+        language_code = None  # Default to None, to be set later
+
+        user_data = {
+            'firstName': first_name,
+            'lastName': last_name,
+            'username': username,
+            'languageCode': language_code,
+            'isPremium': is_premium,
+            'referrals': {},
+            'balance': 0,
+            'completedTasks': [],
+            'daily': {'claimedTime': None, 'claimedDay': 0},
+            'WalletAddress': None,
+        }
+
+        text = message.text.split()
+
+        if len(text) > 1 and text[1].startswith('ref_'):
+            referrer_id = text[1][4:]
+            referrer_ref = db.collection('users').document(referrer_id)
+            referrer_doc = referrer_ref.get()
+
+            if referrer_doc.exists:
+                user_data['referredBy'] = referrer_id
+                referrer_data = referrer_doc.to_dict()
+                bonus_amount = 500 if is_premium else 100
+                current_balance = referrer_data.get('balance', 0)
+                new_balance = current_balance + bonus_amount
+
+                referrals = referrer_data.get('referrals', {})
+                referrals[user_id] = {
+                    'addedValue': bonus_amount,
+                    'firstName': first_name,
+                    'lastName': last_name,
+                }
+
+                referrer_ref.update({
+                    'balance': new_balance,
+                    'referrals': referrals
+                })
+            else:
+                user_data['referredBy'] = None
+
         if not user_doc.exists:
-            # Initialize user data without language selected yet
-            user_data = {
-                'firstName': message.from_user.first_name,
-                'lastName': message.from_user.last_name,
-                'username': message.from_user.username,
-                'languageCode': None,
-                'isPremium': message.from_user.is_premium,
-                'referrals': {},
-                'balance': 0,
-                'completedTasks': [],
-                'daily': {'claimedTime': None, 'claimedDay': 0},
-                'WalletAddress': None,
-            }
-
-            text = message.text.split()
-
-            # Debugging to see the referral part
-            print(f"Referral text: {text}")
-
-            if len(text) > 1 and text[1].startswith('ref_'):
-                referrer_id = text[1][4:]
-
-                referrer_ref = db.collection('users').document(referrer_id)
-                referrer_doc = referrer_ref.get()
-
-                if referrer_doc.exists:
-                    user_data['referredBy'] = referrer_id
-                    referrer_data = referrer_doc.to_dict()
-                    bonus_amount = 500 if message.from_user.is_premium else 100
-                    current_balance = referrer_data.get('balance', 0)
-                    new_balance = current_balance + bonus_amount
-
-                    referrals = referrer_data.get('referrals', {})
-                    referrals[user_id] = {
-                        'addedValue': bonus_amount,
-                        'firstName': message.from_user.first_name,
-                        'lastName': message.from_user.last_name,
-                    }
-
-                    referrer_ref.update({
-                        'balance': new_balance,
-                        'referrals': referrals
-                    })
-                else:
-                    user_data['referredBy'] = None
-
             user_ref.set(user_data)
-        
-        # Get the user's language preference
-        user_data = user_doc.to_dict()
-        selected_language = user_data.get('languageCode', 'english')  # Default to English if not set
+        else:
+            user_data = user_doc.to_dict()
 
-        # Use the imported function to get the welcome messages
-        welcome_messages = get_welcome_messages(message.from_user.first_name)
+        # Set default language to English if not set
+        selected_language = user_data.get('languageCode', 'english')
 
-        # Retrieve the appropriate welcome message based on the user's selected language
+        # Retrieve welcome message
+        welcome_messages = get_welcome_messages(first_name)
         welcome_message = welcome_messages.get(selected_language, welcome_messages['english'])
+
         keyboard = generate_main_keyboard(selected_language)
         await bot.reply_to(message, welcome_message, reply_markup=keyboard)
 
