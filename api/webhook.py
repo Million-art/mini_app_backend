@@ -43,9 +43,11 @@ def generate_main_keyboard(selected_language=None):
     keyboard.add(*buttons)
     keyboard.add(
         types.InlineKeyboardButton("📢 Join Channel", url="https://t.me/mrbeas_group"),
-        types.InlineKeyboardButton("🚀 Launch App", web_app=types.WebAppInfo(url="https://mrb-theta.vercel.app"))
+        types.InlineKeyboardButton("🚀 Launch App", web_app=types.WebAppInfo(url="https://mrb-theta.vercel.app")),
+        types.InlineKeyboardButton("🌐 Visit Website", url="https://www.mrbeas.net")
     )
     return keyboard
+
 
 @bot.message_handler(commands=['start'])
 async def start(message):
