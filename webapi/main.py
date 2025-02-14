@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import uvicorn
 
 # Load environment variables
 load_dotenv()
@@ -81,3 +82,8 @@ async def claim_task(request: ClaimTaskRequest):
     except Exception as e:
         logger.error(f"Unexpected Error: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+# Run the application when executed directly
+if __name__ == "__main__":
+    PORT = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
