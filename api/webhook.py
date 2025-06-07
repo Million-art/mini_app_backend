@@ -60,8 +60,8 @@ async def start(message):
         first_name = message.from_user.first_name or ""
         last_name = message.from_user.last_name or ""
         username = message.from_user.username or ""
-        is_premium = getattr(message.from_user, 'is_premium', False)  # Handle missing attribute
-        language_code = None  # Default to None, to be set later
+        is_premium = getattr(message.from_user, 'is_premium', False)
+        language_code = None
 
         user_data = {
             'firstName': first_name,
@@ -76,38 +76,61 @@ async def start(message):
             'WalletAddress': None,
         }
 
-        text = message.text.split()
+        # Handle referral link
+        try:
+            text = message.text.split()
+            if len(text) > 1 and text[1].startswith('ref_'):
+                referrer_id = text[1][4:]
+                if referrer_id and referrer_id != user_id:  # Prevent self-referral
+                    referrer_ref = db.collection('users').document(referrer_id)
+                    referrer_doc = referrer_ref.get()
 
-        if len(text) > 1 and text[1].startswith('ref_'):
-            referrer_id = text[1][4:]
-            referrer_ref = db.collection('users').document(referrer_id)
-            referrer_doc = referrer_ref.get()
+                    if referrer_doc.exists:
+                        user_data['referredBy'] = referrer_id
+                        referrer_data = referrer_doc.to_dict()
+                        bonus_amount = 500 if is_premium else 100
+                        current_balance = referrer_data.get('balance', 0)
+                        new_balance = current_balance + bonus_amount
 
-            if referrer_doc.exists:
-                user_data['referredBy'] = referrer_id
-                referrer_data = referrer_doc.to_dict()
-                bonus_amount = 500 if is_premium else 100
-                current_balance = referrer_data.get('balance', 0)
-                new_balance = current_balance + bonus_amount
+                        referrals = referrer_data.get('referrals', {})
+                        referrals[user_id] = {
+                            'addedValue': bonus_amount,
+                            'firstName': first_name,
+                            'lastName': last_name,
+                            'timestamp': firestore.SERVER_TIMESTAMP
+                        }
 
-                referrals = referrer_data.get('referrals', {})
-                referrals[user_id] = {
-                    'addedValue': bonus_amount,
-                    'firstName': first_name,
-                    'lastName': last_name,
-                }
+                        # Update referrer's data
+                        referrer_ref.update({
+                            'balance': new_balance,
+                            'referrals': referrals
+                        })
+                        
+                        # Send confirmation to referrer
+                        try:
+                            await bot.send_message(
+                                referrer_id,
+                                f"🎉 Congratulations! You received {bonus_amount} points for referring {first_name}!"
+                            )
+                        except Exception as e:
+                            print(f"Failed to send referral notification: {str(e)}")
+                    else:
+                        print(f"Referrer {referrer_id} not found")
+                        user_data['referredBy'] = None
+                else:
+                    print(f"Invalid referral ID or self-referral attempt: {referrer_id}")
+                    user_data['referredBy'] = None
+        except Exception as e:
+            print(f"Error processing referral: {str(e)}")
+            user_data['referredBy'] = None
 
-                referrer_ref.update({
-                    'balance': new_balance,
-                    'referrals': referrals
-                })
-            else:
-                user_data['referredBy'] = None
-
+        # Create or update user document
         if not user_doc.exists:
             user_ref.set(user_data)
         else:
-            user_data = user_doc.to_dict()
+            # Only update if user doesn't exist
+            if not user_doc.to_dict().get('referredBy'):
+                user_ref.update({'referredBy': user_data.get('referredBy')})
 
         # Set default language to English if not set
         selected_language = user_data.get('languageCode', 'english')
@@ -120,9 +143,9 @@ async def start(message):
         await bot.reply_to(message, welcome_message, reply_markup=keyboard)
 
     except Exception as e:
-        error_message = "Error. Please try again!"
+        error_message = "An error occurred. Please try again later!"
+        print(f"Error in start command: {str(e)}")
         await bot.send_message(message.chat.id, error_message)
-        print(f"Error occurred: {str(e)}")
 
 # Handle language selection callback
 @bot.callback_query_handler(func=lambda call: call.data.startswith('language_'))
