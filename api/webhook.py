@@ -3,6 +3,7 @@ import json
 import requests
 import asyncio
 import datetime
+import logging
 from telebot.async_telebot import AsyncTeleBot
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
@@ -10,6 +11,17 @@ from telebot import types
 from dotenv import load_dotenv
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from .message import get_welcome_messages
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('bot.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -19,11 +31,16 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
-firebase_config = json.loads(os.getenv('FIREBASE_SERVICE_ACCOUNT'))
-cred = credentials.Certificate(firebase_config)
-firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
-db = firestore.client()
-bucket = storage.bucket()
+try:
+    firebase_config = json.loads(os.getenv('FIREBASE_SERVICE_ACCOUNT'))
+    cred = credentials.Certificate(firebase_config)
+    firebase_admin.initialize_app(cred, {'storageBucket': "mrjohn-8ee8b.appspot.com"})
+    db = firestore.client()
+    bucket = storage.bucket()
+    logger.info("Firebase initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Firebase: {str(e)}")
+    raise
 
 # Function to generate main keyboard with language selection
 def generate_main_keyboard(selected_language=None):
@@ -52,7 +69,7 @@ def generate_main_keyboard(selected_language=None):
 @bot.message_handler(commands=['start'])
 async def start(message):
     user_id = str(message.from_user.id)
-    print(f"Processing start command for user {user_id}")
+    logger.info(f"Processing start command for user {user_id}")
     try:
         user_ref = db.collection('users').document(user_id)
         user_doc = user_ref.get()
@@ -63,6 +80,8 @@ async def start(message):
         username = message.from_user.username or ""
         is_premium = getattr(message.from_user, 'is_premium', False)
         language_code = None
+
+        logger.info(f"User data extracted - Name: {first_name}, Username: {username}")
 
         # Initialize user data
         user_data = {
@@ -81,17 +100,17 @@ async def start(message):
         # Handle referral link
         try:
             text = message.text.split()
-            print(f"Message text: {message.text}")
-            print(f"Split text: {text}")
+            logger.info(f"Message text: {message.text}")
+            logger.info(f"Split text: {text}")
             
             if len(text) > 1 and text[1].startswith('ref_'):
                 referrer_id = text[1][4:]
-                print(f"Extracted referrer_id: {referrer_id}")
+                logger.info(f"Extracted referrer_id: {referrer_id}")
                 
                 if referrer_id and referrer_id != user_id:  # Prevent self-referral
                     referrer_ref = db.collection('users').document(referrer_id)
                     referrer_doc = referrer_ref.get()
-                    print(f"Referrer document exists: {referrer_doc.exists}")
+                    logger.info(f"Referrer document exists: {referrer_doc.exists}")
 
                     if referrer_doc.exists:
                         # Set referral data
@@ -109,7 +128,7 @@ async def start(message):
                             'timestamp': firestore.SERVER_TIMESTAMP
                         }
 
-                        print(f"Updating referrer {referrer_id} with new balance: {new_balance}")
+                        logger.info(f"Updating referrer {referrer_id} with new balance: {new_balance}")
                         # Update referrer's data
                         referrer_ref.update({
                             'balance': new_balance,
@@ -122,30 +141,31 @@ async def start(message):
                                 referrer_id,
                                 f"🎉 Congratulations! You received {bonus_amount} points for referring {first_name}!"
                             )
+                            logger.info(f"Sent referral notification to {referrer_id}")
                         except Exception as e:
-                            print(f"Failed to send referral notification: {str(e)}")
+                            logger.error(f"Failed to send referral notification: {str(e)}")
                     else:
-                        print(f"Referrer {referrer_id} not found in database")
+                        logger.warning(f"Referrer {referrer_id} not found in database")
                         user_data['referredBy'] = None
                 else:
-                    print(f"Invalid referral ID or self-referral attempt: {referrer_id}")
+                    logger.warning(f"Invalid referral ID or self-referral attempt: {referrer_id}")
                     user_data['referredBy'] = None
         except Exception as e:
-            print(f"Error processing referral: {str(e)}")
+            logger.error(f"Error processing referral: {str(e)}")
             user_data['referredBy'] = None
 
         # Create or update user document
         if not user_doc.exists:
-            print(f"Creating new user document for {user_id}")
+            logger.info(f"Creating new user document for {user_id}")
             user_ref.set(user_data)
         else:
             # Update existing user data
             existing_data = user_doc.to_dict()
-            print(f"Existing user data: {existing_data}")
+            logger.info(f"Existing user data: {existing_data}")
             
             # Only update referral if it's not already set
             if not existing_data.get('referredBy') and user_data.get('referredBy'):
-                print(f"Updating referral for existing user {user_id}")
+                logger.info(f"Updating referral for existing user {user_id}")
                 update_data = {
                     'referredBy': user_data['referredBy'],
                     'firstName': first_name,
@@ -154,6 +174,7 @@ async def start(message):
                     'isPremium': is_premium
                 }
                 user_ref.update(update_data)
+                logger.info(f"Updated user data: {update_data}")
 
         # Set default language to English if not set
         selected_language = user_data.get('languageCode', 'english')
@@ -164,10 +185,11 @@ async def start(message):
 
         keyboard = generate_main_keyboard(selected_language)
         await bot.reply_to(message, welcome_message, reply_markup=keyboard)
+        logger.info(f"Successfully processed start command for user {user_id}")
 
     except Exception as e:
         error_message = "An error occurred. Please try again later!"
-        print(f"Error in start command: {str(e)}")
+        logger.error(f"Error in start command: {str(e)}", exc_info=True)
         await bot.send_message(message.chat.id, error_message)
 
 # Handle language selection callback
@@ -192,6 +214,7 @@ class Handler(BaseHTTPRequestHandler):
         content_length = int(self.headers['Content-Length'])  
         post_data = self.rfile.read(content_length)
         update_dict = json.loads(post_data.decode('utf-8'))
+        logger.info(f"Received webhook update: {update_dict}")
 
         asyncio.run(self.process_update(update_dict))
 
